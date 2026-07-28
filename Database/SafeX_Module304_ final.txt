@@ -1,0 +1,590 @@
+-- ============================================================
+-- SafeX Educational Learning Platform - General User Dashboard
+-- Module 304 - Complete Database with Runtime Support
+-- NEW DATABASE: SafeX_Education_DB_FINAL
+-- ============================================================
+
+IF EXISTS (SELECT name FROM sys.databases WHERE name = N'SafeX_Education_DB_FINAL')
+BEGIN
+    ALTER DATABASE SafeX_Education_DB_FINAL SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE SafeX_Education_DB_FINAL;
+END
+GO
+
+CREATE DATABASE SafeX_Education_DB_FINAL;
+GO
+
+USE SafeX_Education_DB_FINAL;
+GO
+
+-- ============================================================
+-- 1. USERS TABLE (No dependencies)
+-- ============================================================
+CREATE TABLE Users (
+    UserId          INT IDENTITY(1,1) PRIMARY KEY,
+    Username        NVARCHAR(100) NOT NULL UNIQUE,
+    Email           NVARCHAR(150) NOT NULL UNIQUE,
+    PasswordHash    NVARCHAR(255) NOT NULL,
+    FirstName       NVARCHAR(100) NULL,
+    LastName        NVARCHAR(100) NULL,
+    ProfileImage    NVARCHAR(255) NULL,
+    Role            NVARCHAR(20) NOT NULL CHECK (Role IN ('Admin','Kids','General')),
+    ParentUserId    INT NULL,
+    IsActive        BIT NOT NULL DEFAULT 1,
+    LastLoginDate   DATETIME2 NULL,
+    CreatedAt       DATETIME2 NOT NULL DEFAULT GETDATE(),
+    UpdatedAt       DATETIME2 NULL,
+    FOREIGN KEY (ParentUserId) REFERENCES Users(UserId)
+);
+GO
+
+-- ============================================================
+-- 2. CATEGORIES TABLE (No dependencies)
+-- ============================================================
+CREATE TABLE Categories (
+    CategoryId          INT IDENTITY(1,1) PRIMARY KEY,
+    Name                NVARCHAR(100) NOT NULL,
+    Description         NVARCHAR(500) NULL,
+    AudienceType        NVARCHAR(10) NOT NULL CHECK (AudienceType IN ('Kids','General')),
+    ParentCategoryId    INT NULL,
+    IconUrl             NVARCHAR(255) NULL,
+    ColorCode           NVARCHAR(7) NULL,
+    IsActive            BIT NOT NULL DEFAULT 1,
+    SortOrder           INT NULL,
+    CreatedAt           DATETIME2 NOT NULL DEFAULT GETDATE(),
+    UpdatedAt           DATETIME2 NULL,
+    FOREIGN KEY (ParentCategoryId) REFERENCES Categories(CategoryId)
+);
+GO
+
+-- ============================================================
+-- 3. VIDEOS TABLE (Depends on Users and Categories)
+-- ============================================================
+CREATE TABLE Videos (
+    VideoId             INT IDENTITY(1,1) PRIMARY KEY,
+    YouTubeVideoId      NVARCHAR(50) NOT NULL UNIQUE,
+    Title               NVARCHAR(255) NOT NULL,
+    Description         NVARCHAR(MAX) NULL,
+    ThumbnailUrl        NVARCHAR(255) NULL,
+    ChannelName         NVARCHAR(150) NULL,
+    ChannelUrl          NVARCHAR(255) NULL,
+    DurationSeconds     INT NULL,
+    ViewsCount          BIGINT NULL DEFAULT 0,
+    LikesCount          BIGINT NULL DEFAULT 0,
+    CategoryId          INT NOT NULL,
+    AudienceType        NVARCHAR(10) NOT NULL CHECK (AudienceType IN ('Kids','General')),
+    Language            NVARCHAR(50) NULL,
+    Tags                NVARCHAR(500) NULL,
+    IsFeatured          BIT NOT NULL DEFAULT 0,
+    IsPopular           BIT NOT NULL DEFAULT 0,
+    Status              NVARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (Status IN ('Pending','Published','Rejected','Deleted','Archived')),
+    PublishedAt         DATETIME2 NULL,
+    CreatedBy           INT NOT NULL,
+    CreatedAt           DATETIME2 NOT NULL DEFAULT GETDATE(),
+    UpdatedAt           DATETIME2 NULL,
+    DeletedAt           DATETIME2 NULL,
+    FOREIGN KEY (CategoryId) REFERENCES Categories(CategoryId),
+    FOREIGN KEY (CreatedBy) REFERENCES Users(UserId)
+);
+GO
+
+-- ============================================================
+-- 4. WATCHHISTORY TABLE (Depends on Users and Videos)
+-- ============================================================
+CREATE TABLE WatchHistory (
+    WatchId          INT IDENTITY(1,1) PRIMARY KEY,
+    UserId           INT NOT NULL,
+    VideoId          INT NOT NULL,
+    ProgressPercent  DECIMAL(5,2) NOT NULL DEFAULT 0,
+    IsCompleted      BIT NOT NULL DEFAULT 0,
+    LastPosition     INT NULL,
+    DeviceType       NVARCHAR(50) NULL,
+    WatchedAt        DATETIME2 NOT NULL DEFAULT GETDATE(),
+    FOREIGN KEY (UserId) REFERENCES Users(UserId),
+    FOREIGN KEY (VideoId) REFERENCES Videos(VideoId),
+    CONSTRAINT UQ_UserVideoWatch UNIQUE (UserId, VideoId)
+);
+GO
+
+-- ============================================================
+-- 5. BOOKMARKS TABLE (Depends on Users and Videos)
+-- ============================================================
+CREATE TABLE Bookmarks (
+    BookmarkId    INT IDENTITY(1,1) PRIMARY KEY,
+    UserId        INT NOT NULL,
+    VideoId       INT NOT NULL,
+    Notes         NVARCHAR(500) NULL,
+    CreatedAt     DATETIME2 NOT NULL DEFAULT GETDATE(),
+    FOREIGN KEY (UserId) REFERENCES Users(UserId),
+    FOREIGN KEY (VideoId) REFERENCES Videos(VideoId),
+    CONSTRAINT UQ_UserVideoBookmark UNIQUE (UserId, VideoId)
+);
+GO
+
+-- ============================================================
+-- 6. RECOMMENDATIONS TABLE (Depends on Users and Videos)
+-- ============================================================
+CREATE TABLE Recommendations (
+    RecommendationId  INT IDENTITY(1,1) PRIMARY KEY,
+    VideoId           INT NOT NULL,
+    SuggestedForUser  INT NULL,
+    Reason            NVARCHAR(255) NULL,
+    ConfidenceScore   DECIMAL(5,2) NULL,
+    Status            NVARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (Status IN ('Pending','Approved','Rejected','Viewed')),
+    CreatedAt         DATETIME2 NOT NULL DEFAULT GETDATE(),
+    ViewedAt          DATETIME2 NULL,
+    FOREIGN KEY (VideoId) REFERENCES Videos(VideoId),
+    FOREIGN KEY (SuggestedForUser) REFERENCES Users(UserId)
+);
+GO
+
+-- ============================================================
+-- 7. ACTIVITYLOG TABLE (Depends on Users and Videos)
+-- ============================================================
+CREATE TABLE ActivityLog (
+    ActivityId    INT IDENTITY(1,1) PRIMARY KEY,
+    UserId        INT NOT NULL,
+    ActivityType  NVARCHAR(30) NOT NULL CHECK (
+        ActivityType IN (
+            'Login', 'Logout', 'Play', 'Progress', 'Bookmark', 'Unbookmark',
+            'Search', 'AddVideo', 'UpdateVideo', 'DeleteVideo', 'ViewRecommendation',
+            'CompleteVideo', 'DashboardView', 'Share', 'Rate', 'Comment',
+            'CategoryView', 'PopularView', 'RecentView'
+        )
+    ),
+    VideoId       INT NULL,
+    CategoryId    INT NULL,
+    Details       NVARCHAR(500) NULL,
+    IPAddress     NVARCHAR(50) NULL,
+    UserAgent     NVARCHAR(255) NULL,
+    SessionId     NVARCHAR(100) NULL,
+    OccurredAt    DATETIME2 NOT NULL DEFAULT GETDATE(),
+    FOREIGN KEY (UserId) REFERENCES Users(UserId),
+    FOREIGN KEY (VideoId) REFERENCES Videos(VideoId),
+    FOREIGN KEY (CategoryId) REFERENCES Categories(CategoryId)
+);
+GO
+
+-- ============================================================
+-- 8. VIDEORATINGS TABLE (Depends on Users and Videos)
+-- ============================================================
+CREATE TABLE VideoRatings (
+    RatingId      INT IDENTITY(1,1) PRIMARY KEY,
+    UserId        INT NOT NULL,
+    VideoId       INT NOT NULL,
+    Rating        TINYINT NOT NULL CHECK (Rating BETWEEN 1 AND 5),
+    Review        NVARCHAR(500) NULL,
+    CreatedAt     DATETIME2 NOT NULL DEFAULT GETDATE(),
+    UpdatedAt     DATETIME2 NULL,
+    FOREIGN KEY (UserId) REFERENCES Users(UserId),
+    FOREIGN KEY (VideoId) REFERENCES Videos(VideoId),
+    CONSTRAINT UQ_UserVideoRating UNIQUE (UserId, VideoId)
+);
+GO
+
+-- ============================================================
+-- 9. INDEXES
+-- ============================================================
+CREATE INDEX IX_ActivityLog_UserId_OccurredAt ON ActivityLog(UserId, OccurredAt DESC);
+CREATE INDEX IX_ActivityLog_ActivityType_OccurredAt ON ActivityLog(ActivityType, OccurredAt DESC);
+CREATE INDEX IX_ActivityLog_OccurredAt ON ActivityLog(OccurredAt DESC);
+CREATE INDEX IX_ActivityLog_VideoId ON ActivityLog(VideoId);
+CREATE INDEX IX_ActivityLog_CategoryId ON ActivityLog(CategoryId);
+CREATE INDEX IX_WatchHistory_UserId ON WatchHistory(UserId);
+CREATE INDEX IX_WatchHistory_UserId_IsCompleted ON WatchHistory(UserId, IsCompleted);
+CREATE INDEX IX_WatchHistory_WatchedAt ON WatchHistory(WatchedAt DESC);
+CREATE INDEX IX_Videos_CategoryId ON Videos(CategoryId);
+CREATE INDEX IX_Videos_AudienceType_Status ON Videos(AudienceType, Status);
+CREATE INDEX IX_Videos_PublishedAt ON Videos(PublishedAt DESC);
+CREATE INDEX IX_Videos_ViewsCount ON Videos(ViewsCount DESC);
+CREATE INDEX IX_Bookmarks_UserId ON Bookmarks(UserId);
+CREATE INDEX IX_Bookmarks_VideoId ON Bookmarks(VideoId);
+CREATE INDEX IX_Recommendations_User_Status ON Recommendations(SuggestedForUser, Status);
+CREATE INDEX IX_Recommendations_VideoId ON Recommendations(VideoId);
+CREATE INDEX IX_VideoRatings_UserId ON VideoRatings(UserId);
+CREATE INDEX IX_VideoRatings_VideoId ON VideoRatings(VideoId);
+GO
+
+-- ============================================================
+-- 10. STORED PROCEDURES
+-- ============================================================
+
+-- Get Continue Watching
+CREATE PROCEDURE sp_GetContinueWatching
+    @UserId INT,
+    @Limit INT = 10
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (@Limit)
+        v.VideoId, v.YouTubeVideoId, v.Title, v.ThumbnailUrl, v.ChannelName,
+        v.DurationSeconds, v.ViewsCount, wh.ProgressPercent, wh.IsCompleted, wh.WatchedAt
+    FROM WatchHistory wh
+    INNER JOIN Videos v ON wh.VideoId = v.VideoId
+    WHERE wh.UserId = @UserId AND wh.ProgressPercent < 100 AND wh.ProgressPercent > 0
+        AND v.Status = 'Published'
+    ORDER BY wh.WatchedAt DESC;
+END
+GO
+
+-- Get Bookmarks
+CREATE PROCEDURE sp_GetBookmarks
+    @UserId INT,
+    @Limit INT = 10
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (@Limit)
+        b.BookmarkId, v.VideoId, v.YouTubeVideoId, v.Title, v.ThumbnailUrl,
+        v.ChannelName, v.DurationSeconds, v.ViewsCount, b.Notes, b.CreatedAt
+    FROM Bookmarks b
+    INNER JOIN Videos v ON b.VideoId = v.VideoId
+    WHERE b.UserId = @UserId AND v.Status = 'Published'
+    ORDER BY b.CreatedAt DESC;
+END
+GO
+
+-- Get Recommendations
+CREATE PROCEDURE sp_GetRecommendations
+    @UserId INT,
+    @Limit INT = 10
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT TOP (@Limit)
+        r.RecommendationId, v.VideoId, v.YouTubeVideoId, v.Title, v.ThumbnailUrl,
+        v.ChannelName, v.DurationSeconds, v.ViewsCount, r.Reason, r.ConfidenceScore
+    FROM Recommendations r
+    INNER JOIN Videos v ON r.VideoId = v.VideoId
+    WHERE r.SuggestedForUser = @UserId AND r.Status = 'Pending' AND v.Status = 'Published'
+    ORDER BY r.ConfidenceScore DESC, r.CreatedAt DESC;
+END
+GO
+
+-- Get Recent Videos
+CREATE PROCEDURE sp_GetRecentVideos
+    @AudienceType NVARCHAR(10) = NULL,
+    @UserId INT = NULL,
+    @Limit INT = 20,
+    @Offset INT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT 
+        v.VideoId, v.YouTubeVideoId, v.Title, v.Description, v.ThumbnailUrl,
+        v.ChannelName, v.DurationSeconds, v.ViewsCount, v.LikesCount, v.PublishedAt,
+        c.Name as CategoryName,
+        CASE WHEN b.BookmarkId IS NOT NULL THEN 1 ELSE 0 END as IsBookmarked,
+        CASE WHEN wh.WatchId IS NOT NULL THEN 1 ELSE 0 END as IsWatched,
+        wh.ProgressPercent as WatchProgress
+    FROM Videos v
+    INNER JOIN Categories c ON v.CategoryId = c.CategoryId
+    LEFT JOIN Bookmarks b ON v.VideoId = b.VideoId AND b.UserId = @UserId
+    LEFT JOIN WatchHistory wh ON v.VideoId = wh.VideoId AND wh.UserId = @UserId
+    WHERE v.Status = 'Published' AND (@AudienceType IS NULL OR v.AudienceType = @AudienceType)
+    ORDER BY v.PublishedAt DESC
+    OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY;
+END
+GO
+
+-- Get Popular Videos
+CREATE PROCEDURE sp_GetPopularVideos
+    @AudienceType NVARCHAR(10) = NULL,
+    @UserId INT = NULL,
+    @Limit INT = 20,
+    @Offset INT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT 
+        v.VideoId, v.YouTubeVideoId, v.Title, v.Description, v.ThumbnailUrl,
+        v.ChannelName, v.DurationSeconds, v.ViewsCount, v.LikesCount, v.PublishedAt,
+        c.Name as CategoryName,
+        CASE WHEN b.BookmarkId IS NOT NULL THEN 1 ELSE 0 END as IsBookmarked,
+        CASE WHEN wh.WatchId IS NOT NULL THEN 1 ELSE 0 END as IsWatched,
+        wh.ProgressPercent as WatchProgress
+    FROM Videos v
+    INNER JOIN Categories c ON v.CategoryId = c.CategoryId
+    LEFT JOIN Bookmarks b ON v.VideoId = b.VideoId AND b.UserId = @UserId
+    LEFT JOIN WatchHistory wh ON v.VideoId = wh.VideoId AND wh.UserId = @UserId
+    WHERE v.Status = 'Published' AND (@AudienceType IS NULL OR v.AudienceType = @AudienceType)
+    ORDER BY v.ViewsCount DESC
+    OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY;
+END
+GO
+
+-- Get Categories
+CREATE PROCEDURE sp_GetCategoriesStrip
+    @AudienceType NVARCHAR(10) = NULL,
+    @UserId INT = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT 
+        c.CategoryId, c.Name, c.Description, c.IconUrl, c.ColorCode, c.AudienceType,
+        (SELECT COUNT(*) FROM Videos WHERE CategoryId = c.CategoryId AND Status = 'Published') as VideoCount
+    FROM Categories c
+    WHERE c.IsActive = 1 AND (@AudienceType IS NULL OR c.AudienceType = @AudienceType)
+    ORDER BY c.SortOrder ASC, c.Name ASC;
+END
+GO
+
+-- Get Videos by Category
+CREATE PROCEDURE sp_GetVideosByCategory
+    @CategoryId INT,
+    @UserId INT = NULL,
+    @Limit INT = 20,
+    @Offset INT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT 
+        v.VideoId, v.YouTubeVideoId, v.Title, v.Description, v.ThumbnailUrl,
+        v.ChannelName, v.DurationSeconds, v.ViewsCount, v.LikesCount, v.PublishedAt,
+        c.Name as CategoryName,
+        CASE WHEN b.BookmarkId IS NOT NULL THEN 1 ELSE 0 END as IsBookmarked,
+        CASE WHEN wh.WatchId IS NOT NULL THEN 1 ELSE 0 END as IsWatched,
+        wh.ProgressPercent as WatchProgress
+    FROM Videos v
+    INNER JOIN Categories c ON v.CategoryId = c.CategoryId
+    LEFT JOIN Bookmarks b ON v.VideoId = b.VideoId AND b.UserId = @UserId
+    LEFT JOIN WatchHistory wh ON v.VideoId = wh.VideoId AND wh.UserId = @UserId
+    WHERE v.CategoryId = @CategoryId AND v.Status = 'Published'
+    ORDER BY v.PublishedAt DESC
+    OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY;
+END
+GO
+
+-- Search Videos
+CREATE PROCEDURE sp_SearchVideos
+    @SearchTerm NVARCHAR(255),
+    @UserId INT = NULL,
+    @AudienceType NVARCHAR(10) = NULL,
+    @CategoryId INT = NULL,
+    @Limit INT = 20,
+    @Offset INT = 0
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT 
+        v.VideoId, v.YouTubeVideoId, v.Title, v.Description, v.ThumbnailUrl,
+        v.ChannelName, v.DurationSeconds, v.ViewsCount, v.LikesCount, v.PublishedAt,
+        c.Name as CategoryName,
+        CASE WHEN b.BookmarkId IS NOT NULL THEN 1 ELSE 0 END as IsBookmarked,
+        CASE WHEN wh.WatchId IS NOT NULL THEN 1 ELSE 0 END as IsWatched,
+        wh.ProgressPercent as WatchProgress
+    FROM Videos v
+    INNER JOIN Categories c ON v.CategoryId = c.CategoryId
+    LEFT JOIN Bookmarks b ON v.VideoId = b.VideoId AND b.UserId = @UserId
+    LEFT JOIN WatchHistory wh ON v.VideoId = wh.VideoId AND wh.UserId = @UserId
+    WHERE v.Status = 'Published'
+        AND (v.Title LIKE '%' + @SearchTerm + '%' OR v.Description LIKE '%' + @SearchTerm + '%')
+        AND (@AudienceType IS NULL OR v.AudienceType = @AudienceType)
+        AND (@CategoryId IS NULL OR v.CategoryId = @CategoryId)
+    ORDER BY v.ViewsCount DESC
+    OFFSET @Offset ROWS FETCH NEXT @Limit ROWS ONLY;
+END
+GO
+
+-- Play Video
+CREATE PROCEDURE sp_PlayVideo
+    @UserId INT,
+    @VideoId INT,
+    @DeviceType NVARCHAR(50) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (SELECT 1 FROM WatchHistory WHERE UserId = @UserId AND VideoId = @VideoId)
+        UPDATE WatchHistory SET WatchedAt = GETDATE() WHERE UserId = @UserId AND VideoId = @VideoId;
+    ELSE
+        INSERT INTO WatchHistory (UserId, VideoId) VALUES (@UserId, @VideoId);
+    UPDATE Videos SET ViewsCount = ViewsCount + 1 WHERE VideoId = @VideoId;
+END
+GO
+
+-- Update Progress
+CREATE PROCEDURE sp_UpdateProgress
+    @UserId INT,
+    @VideoId INT,
+    @ProgressPercent DECIMAL(5,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @IsCompleted BIT = CASE WHEN @ProgressPercent >= 100 THEN 1 ELSE 0 END;
+    IF EXISTS (SELECT 1 FROM WatchHistory WHERE UserId = @UserId AND VideoId = @VideoId)
+        UPDATE WatchHistory SET ProgressPercent = @ProgressPercent, IsCompleted = @IsCompleted, WatchedAt = GETDATE()
+        WHERE UserId = @UserId AND VideoId = @VideoId;
+    ELSE
+        INSERT INTO WatchHistory (UserId, VideoId, ProgressPercent, IsCompleted) VALUES (@UserId, @VideoId, @ProgressPercent, @IsCompleted);
+END
+GO
+
+-- Add Bookmark
+CREATE PROCEDURE sp_AddBookmark
+    @UserId INT,
+    @VideoId INT,
+    @Notes NVARCHAR(500) = NULL
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF NOT EXISTS (SELECT 1 FROM Bookmarks WHERE UserId = @UserId AND VideoId = @VideoId)
+        INSERT INTO Bookmarks (UserId, VideoId, Notes) VALUES (@UserId, @VideoId, @Notes);
+END
+GO
+
+-- Remove Bookmark
+CREATE PROCEDURE sp_RemoveBookmark
+    @UserId INT,
+    @VideoId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DELETE FROM Bookmarks WHERE UserId = @UserId AND VideoId = @VideoId;
+END
+GO
+
+-- Get Dashboard Stats
+CREATE PROCEDURE sp_GetDashboardStats
+    @UserId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT 
+        (SELECT COUNT(*) FROM WatchHistory WHERE UserId = @UserId) as TotalWatched,
+        (SELECT COUNT(*) FROM WatchHistory WHERE UserId = @UserId AND IsCompleted = 1) as CompletedVideos,
+        (SELECT COUNT(*) FROM Bookmarks WHERE UserId = @UserId) as TotalBookmarks,
+        (SELECT COUNT(*) FROM Recommendations WHERE SuggestedForUser = @UserId AND Status = 'Pending') as PendingRecommendations;
+END
+GO
+
+-- ============================================================
+-- 11. INSERT SEED DATA
+-- ============================================================
+
+-- Users
+INSERT INTO Users (Username, Email, PasswordHash, FirstName, LastName, Role, LastLoginDate) VALUES
+('admin_kifla', 'kifla@safex.com', 'hashed_pw_1', 'Kifla', 'Malik', 'Admin', GETDATE()),
+('parent_sara', 'sara@safex.com', 'demo123', 'Sara', 'Johnson', 'General', GETDATE()),
+('user_huriya', 'huriya@safex.com', 'demo123', 'Huriya', 'Tariq', 'General', GETDATE()),
+('user_fizza', 'fizza@safex.com', 'demo123', 'Fizza', 'Tariq', 'General', GETDATE()),
+('user_ali', 'ali@safex.com', 'demo123', 'Ali', 'Tariq', 'General', GETDATE()),
+('user_urwah', 'urwah@safex.com', 'demo123', 'Urwah', 'Gull', 'General', GETDATE()),
+('user_muhammad', 'muhammad@safex.com', 'demo123', 'Muhammad', 'BinWaseem', 'General', GETDATE()),
+('user_mueez', 'mueez@safex.com', 'demo123', 'Abdul', 'Mueez', 'General', GETDATE()),
+('kid_affaf', 'affaf.kid@safex.com', 'demo123', 'Affaf', 'Waseem', 'Kids', GETDATE());
+GO
+
+-- Categories
+INSERT INTO Categories (Name, Description, AudienceType, IconUrl, ColorCode, SortOrder) VALUES
+('Programming', 'Learn programming languages', 'General', 'fa-code', '#6C63FF', 1),
+('Cybersecurity', 'Protect systems and networks', 'General', 'fa-shield-alt', '#2ECC71', 2),
+('Hardware', 'Computer hardware', 'General', 'fa-microchip', '#E67E22', 3),
+('Web Development', 'Build websites', 'General', 'fa-globe', '#3498DB', 4),
+('Data Science', 'Data analysis and ML', 'General', 'fa-database', '#9B59B6', 5),
+('Mobile Development', 'iOS and Android', 'General', 'fa-mobile-alt', '#E74C3C', 6),
+('Cloud Computing', 'Cloud services', 'General', 'fa-cloud', '#F39C12', 7),
+('Kid Programming', 'Coding for children', 'Kids', 'fa-child', '#FF6B6B', 8),
+('Kid Science', 'Science experiments', 'Kids', 'fa-flask', '#4ECDC4', 9),
+('Kid Math', 'Mathematics for kids', 'Kids', 'fa-calculator', '#FFE66D', 10);
+GO
+
+-- Videos - Complete Updated List
+INSERT INTO Videos (YouTubeVideoId, Title, Description, ChannelName, DurationSeconds, ViewsCount, LikesCount, CategoryId, AudienceType, Language, Tags, Status, PublishedAt, CreatedBy) VALUES
+('rfscVS0vtbw', 'Learn Python - Full Course', 'Complete Python course', 'freeCodeCamp.org', 14280, 45000000, 1230000, 1, 'General', 'English', 'python', 'Published', GETDATE(), 1),
+('PkZNo7MFNFg', 'Learn JavaScript - Full Course', 'JavaScript fundamentals', 'freeCodeCamp.org', 12600, 12000000, 890000, 1, 'General', 'English', 'javascript', 'Published', GETDATE(), 1),
+('Oe421EPjeBE', 'Node.js and Express.js - Full Course', 'Backend development', 'freeCodeCamp.org', 28800, 3200000, 450000, 1, 'General', 'English', 'nodejs', 'Published', GETDATE(), 1),
+('XqFR2lqBYPs', 'HTML y CSS - Curso desde Cero', 'HTML and CSS in Spanish', 'freeCodeCamp.org', 18000, 900000, 120000, 4, 'General', 'Spanish', 'html,css', 'Published', GETDATE(), 1),
+('dQw4w9WgXcQ', 'Python Django Tutorial', 'Learn Django', 'freeCodeCamp.org', 7200, 2500000, 180000, 4, 'General', 'English', 'django', 'Published', GETDATE(), 1),
+('C0DPdy98e4c', 'React.js Crash Course', 'React fundamentals', 'Traversy Media', 7200, 1800000, 210000, 4, 'General', 'English', 'react', 'Published', GETDATE(), 1),
+('3Kq1MIfTWCE', 'Network Security 101', 'Network security', 'Professor Messer', 5400, 750000, 67000, 2, 'General', 'English', 'network', 'Published', GETDATE(), 1),
+('w7ejDZ8SWv8', 'React.js Crash Course', 'React fundamentals in 2 hours', 'Traversy Media', 7200, 1800000, 210000, 4, 'General', 'English', 'react,javascript', 'Published', GETDATE(), 1),
+('HXV3zeQKqGY', 'SQL Tutorial - Full Course', 'Complete SQL course for beginners', 'freeCodeCamp.org', 21600, 3200000, 410000, 1, 'General', 'English', 'sql,database', 'Published', GETDATE(), 1),
+('pQN-pnXPaVg', 'HTML Full Course - Build a Website Tutorial', 'Complete HTML course for beginners', 'freeCodeCamp.org', 7200, 2800000, 210000, 4, 'General', 'English', 'html,web,development', 'Published', GETDATE(), 1),
+('phWxA89Dy94', 'CSS Flexbox Full Course - Master Flexbox in 1 Hour', 'Complete CSS Flexbox course', 'freeCodeCamp.org', 3600, 980000, 85000, 4, 'General', 'English', 'css,flexbox,layout', 'Published', GETDATE(), 1),
+('Gv9_4yMHFhI', 'Machine Learning for Everybody - Full Course', 'Complete ML course covering fundamentals', 'freeCodeCamp.org', 21600, 2800000, 210000, 5, 'General', 'English', 'machinelearning,ml,ai', 'Published', GETDATE(), 1),
+('tPYj3fFJGjk', 'Data Visualization with Python', 'Matplotlib and seaborn', 'Corey Schafer', 4800, 450000, 34000, 5, 'General', 'English', 'dataviz', 'Published', GETDATE(), 1),
+('F9UC9DY-vIU', 'Android Development for Beginners - Full Course', 'Complete Android app development course using Kotlin', 'freeCodeCamp.org', 18000, 1100000, 95000, 6, 'General', 'English', 'android,kotlin,mobile', 'Published', GETDATE(), 1),
+('1fFgTqn9i_Y', 'Scratch Programming for Kids', 'Learn Scratch', 'Scratch Team', 1800, 560000, 45000, 8, 'Kids', 'English', 'scratch', 'Published', GETDATE(), 1),
+('ZrcjK4KqHwI', 'Fun Science Experiments at Home', 'Science experiments', 'Science Max', 1500, 890000, 78000, 9, 'Kids', 'English', 'science', 'Published', GETDATE(), 1),
+('fRwRcI2jVUc', 'Multiplication Tables Fun', 'Learn multiplication', 'Numberblocks', 900, 2300000, 210000, 10, 'Kids', 'English', 'math', 'Published', GETDATE(), 1);
+GO
+-- Watch History
+INSERT INTO WatchHistory (UserId, VideoId, ProgressPercent, IsCompleted, WatchedAt) VALUES
+(2, 1, 45.50, 0, GETDATE()),
+(2, 2, 100.00, 1, GETDATE()),
+(2, 3, 20.00, 0, GETDATE()),
+(2, 5, 67.30, 0, GETDATE()),
+(3, 1, 100.00, 1, GETDATE()),
+(3, 2, 80.00, 0, GETDATE()),
+(4, 3, 55.00, 0, GETDATE()),
+(5, 5, 30.00, 0, GETDATE()),
+(6, 1, 90.00, 0, GETDATE()),
+(9, 23, 60.00, 0, GETDATE());
+GO
+
+-- Bookmarks
+INSERT INTO Bookmarks (UserId, VideoId, Notes, CreatedAt) VALUES
+(2, 4, 'Learn Spanish', GETDATE()),
+(2, 5, 'Cyber security', GETDATE()),
+(3, 1, 'Great course', GETDATE()),
+(3, 3, 'Node.js', GETDATE()),
+(4, 7, 'React', GETDATE()),
+(5, 16, 'PC build', GETDATE()),
+(6, 19, 'ML', GETDATE());
+GO
+
+-- Recommendations
+INSERT INTO Recommendations (VideoId, SuggestedForUser, Reason, ConfidenceScore, Status, CreatedAt) VALUES
+(3, 2, 'Based on your interest', 85.50, 'Pending', GETDATE()),
+(6, 2, 'Popular', 75.00, 'Pending', GETDATE()),
+(13, 2, 'You watched cybersecurity', 90.00, 'Approved', GETDATE()),
+(5, 3, 'Based on watch history', 90.00, 'Pending', GETDATE()),
+(8, 4, 'Trending', 70.00, 'Approved', GETDATE()),
+(16, 5, 'You watched hardware', 85.00, 'Pending', GETDATE());
+GO
+
+-- Activity Logs
+INSERT INTO ActivityLog (UserId, ActivityType, VideoId, Details, OccurredAt) VALUES
+(2, 'Login', NULL, 'Morning login', GETDATE()),
+(2, 'DashboardView', NULL, 'Viewed dashboard', GETDATE()),
+(2, 'Play', 1, 'Started watching', GETDATE()),
+(2, 'Progress', 1, '15.00%', GETDATE()),
+(2, 'Search', NULL, 'python tutorial', GETDATE()),
+(2, 'Bookmark', 4, 'Added bookmark', GETDATE()),
+(3, 'Login', NULL, 'Morning login', GETDATE()),
+(3, 'Play', 1, 'Started watching', GETDATE()),
+(3, 'Progress', 1, '100.00%', GETDATE()),
+(3, 'CompleteVideo', 1, 'Completed Python', GETDATE()),
+(4, 'Login', NULL, 'Evening login', GETDATE()),
+(4, 'Play', 3, 'Started watching', GETDATE()),
+(4, 'Progress', 3, '55.00%', GETDATE()),
+(5, 'Login', NULL, 'Morning login', GETDATE()),
+(5, 'Play', 5, 'Started watching', GETDATE()),
+(6, 'Login', NULL, 'Late login', GETDATE()),
+(6, 'Play', 1, 'Started watching', GETDATE()),
+(9, 'Login', NULL, 'Kids login', GETDATE()),
+(9, 'Play', 23, 'Started watching', GETDATE());
+GO
+
+-- Video Ratings
+INSERT INTO VideoRatings (UserId, VideoId, Rating, Review, CreatedAt) VALUES
+(2, 1, 5, 'Excellent!', GETDATE()),
+(2, 2, 4, 'Good', GETDATE()),
+(2, 5, 5, 'Very informative', GETDATE()),
+(3, 1, 5, 'Best ever!', GETDATE()),
+(4, 7, 5, 'Awesome', GETDATE()),
+(5, 16, 5, 'Fun', GETDATE()),
+(6, 19, 4, 'Good introduction', GETDATE());
+GO
+
+
+
+
+
+
+
+
+
+
+
+
