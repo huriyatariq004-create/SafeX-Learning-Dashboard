@@ -1,8 +1,8 @@
- SafeX Learning Dashboard
+## SafeX Learning Dashboard
 
 A complete **Learning Dashboard** module for the SafeX Educational Platform. This dashboard allows users to browse, watch, and track educational videos with progress tracking, bookmarks, and personalized recommendations.
 
- Features
+## Features
 
 - **Video Browsing** – Explore educational videos by category
 - **Continue Watching** – Resume videos from where you left off
@@ -14,7 +14,7 @@ A complete **Learning Dashboard** module for the SafeX Educational Platform. Thi
 - **Responsive Design** – Works on desktop, tablet, and mobile, including a mobile slide-in navigation drawer
 - **Light/Dark Theme** – Toggle between light and dark mode
 
- Technologies Used
+## Technologies Used
 
 | Layer | Technology |
 |---|---|
@@ -25,42 +25,8 @@ A complete **Learning Dashboard** module for the SafeX Educational Platform. Thi
 | **Styling** | Tailwind CSS |
 
 
- Project Structure
 
-
-SafeXApi/
-├── Controllers/          # API endpoints
-│   ├── AuthController.cs
-│   ├── CategoriesController.cs
-│   └── GeneralDashboardController.cs
-├── Data/                 # Database context
-│   └── ApplicationDbContext.cs
-├── Models/                # Entity models
-│   ├── User.cs
-│   ├── Video.cs
-│   ├── Category.cs
-│   ├── WatchHistory.cs
-│   ├── Bookmark.cs
-│   ├── Recommendation.cs
-│   ├── VideoDeletionLog.cs
-│   └── ActivityLog.cs
-├── DTOs/                  # API response shapes
-├── Repositories/          # Data access layer
-├── Services/              # Business logic
-└── Program.cs             # Application entry point
-
-Frontend/dashboard/
-├── src/
-│   ├── components/        # Sidebar, TopBar, VideoCard, PlayerModal,
-│   │                       # BookmarksPage, HistoryPage, AddVideoForm, Dashboard
-│   ├── api/                # dashboardApi.js - all backend calls
-│   ├── AuthContext.jsx     # Login/session state
-│   ├── LoginPage.jsx
-│   ├── theme.js            # Dark/light color tokens
-│   └── App.jsx
-
-
- Getting Started
+## Getting Started
 
 Prerequisites
 
@@ -68,7 +34,7 @@ Prerequisites
 - [Node.js](https://nodejs.org/)
 - [SQL Server](https://www.microsoft.com/en-us/sql-server/sql-server-downloads)
 
- Backend Setup
+## Backend Setup
 
 1. **Clone the repository**
    ```bash
@@ -90,7 +56,8 @@ Prerequisites
    ```
    API runs at: `http://localhost:5000`
 
- Frontend Setup
+
+## Frontend Setup
 
 1. **Navigate to the frontend folder**
    ```bash
@@ -110,7 +77,7 @@ Prerequisites
 
 
 
-Database Schema
+##Database Schema
 
 | Table | Purpose |
 |---|---|
@@ -129,7 +96,7 @@ This project is for educational purposes as part of the SafeX Educational Learni
 
 
 
- Author
+## Author
 
 **Huriyat Tariq**
 GitHub: [@huriyatariq004-create](https://github.com/huriyatariq004-create)
