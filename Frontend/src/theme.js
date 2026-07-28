@@ -1,0 +1,37 @@
+export const THEMES = {
+  dark: {
+    bg: '#0f0f1a',
+    surface: 'rgba(255, 255, 255, 0.05)',
+    surfaceHover: 'rgba(255, 255, 255, 0.08)',
+    accent: '#6C63FF',
+    accentSoft: 'rgba(108, 99, 255, 0.15)',
+    text: '#ffffff',
+    muted: '#6b6b80',
+    border: 'rgba(255, 255, 255, 0.08)',
+    shadow: '0 4px 24px rgba(0, 0, 0, 0.3)',
+    sidebar: 'rgba(26, 26, 46, 0.95)',
+    cardBg: 'rgba(255, 255, 255, 0.05)',
+    sectionBg: 'rgba(255, 255, 255, 0.03)',
+   
+    searchBg: 'rgba(255, 255, 255, 0.08)',
+    searchBorder: 'rgba(255, 255, 255, 0.1)',
+    searchFocus: 'rgba(108, 99, 255, 0.3)',
+  },
+  light: {
+    bg: '#f5f5fa',
+    surface: 'rgba(255, 255, 255, 0.8)',
+    surfaceHover: 'rgba(0, 0, 0, 0.04)',
+    accent: '#6C63FF',
+    accentSoft: 'rgba(108, 99, 255, 0.1)',
+    text: '#1a1a2e',
+    muted: '#6b6b80',
+    border: 'rgba(0, 0, 0, 0.08)',
+    shadow: '0 4px 24px rgba(0, 0, 0, 0.08)',
+    sidebar: 'rgba(240, 240, 245, 0.95)',
+    cardBg: 'rgba(255, 255, 255, 0.6)',
+    sectionBg: 'rgba(255, 255, 255, 0.4)',
+    searchBg: 'rgba(255, 255, 255, 0.5)',
+    searchBorder: 'rgba(0, 0, 0, 0.1)',
+    searchFocus: 'rgba(108, 99, 255, 0.2)',
+  }
+};
