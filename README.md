@@ -88,7 +88,6 @@ Prerequisites
 | `Bookmarks` | Saved videos |
 | `Recommendations` | Personalized suggestions |
 | `ActivityLog` | Runtime activity tracking (plays, searches, bookmarks) |
-| `VideoDeletionLog` | Soft delete / restore / permanent delete audit trail |
 
 License
 
